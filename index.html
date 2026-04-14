@@ -3,11 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IP Tracer - EU/NL Infrastructure Detector</title>
+<title>IP Tracer - Infrastructure Geo Detector</title>
 <style>
   :root {
     --bg: #0a0e17;
     --surface: #111827;
+    --surface2: #1a2332;
     --border: #1e293b;
     --text: #e2e8f0;
     --muted: #64748b;
@@ -15,6 +16,7 @@
     --eu: #f59e0b;
     --nl: #ef4444;
     --safe: #10b981;
+    --warn: #f97316;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -27,221 +29,173 @@
     padding: 2rem;
   }
 
-  h1 {
-    font-size: 1.5rem;
-    margin-bottom: 0.25rem;
-    color: var(--accent);
-  }
+  h1 { font-size: 1.5rem; margin-bottom: 0.25rem; color: var(--accent); }
 
-  .subtitle {
-    color: var(--muted);
-    font-size: 0.8rem;
-    margin-bottom: 1.5rem;
-  }
+  .subtitle { color: var(--muted); font-size: 0.8rem; margin-bottom: 1.5rem; }
 
-  .input-section {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-  }
+  .input-section { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
 
   textarea {
-    flex: 1;
-    min-width: 300px;
-    height: 120px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text);
-    padding: 0.75rem;
-    font-family: inherit;
-    font-size: 0.85rem;
-    resize: vertical;
+    flex: 1; min-width: 300px; height: 120px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); padding: 0.75rem; font-family: inherit; font-size: 0.85rem; resize: vertical;
   }
-
   textarea::placeholder { color: var(--muted); }
   textarea:focus { outline: none; border-color: var(--accent); }
 
-  .controls {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    min-width: 180px;
-  }
+  .controls { display: flex; flex-direction: column; gap: 0.5rem; min-width: 180px; }
 
   button {
-    background: var(--accent);
-    color: white;
-    border: none;
-    padding: 0.6rem 1.2rem;
-    border-radius: 6px;
-    font-family: inherit;
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: opacity 0.2s;
+    background: var(--accent); color: white; border: none;
+    padding: 0.6rem 1.2rem; border-radius: 6px;
+    font-family: inherit; font-size: 0.85rem; cursor: pointer; transition: opacity 0.2s;
   }
-
   button:hover { opacity: 0.85; }
   button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-  .btn-secondary {
-    background: var(--surface);
-    border: 1px solid var(--border);
-  }
+  .btn-secondary { background: var(--surface); border: 1px solid var(--border); }
 
   .file-label {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--surface);
-    border: 1px dashed var(--border);
-    padding: 0.6rem 1.2rem;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    transition: border-color 0.2s;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--surface); border: 1px dashed var(--border);
+    padding: 0.6rem 1.2rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;
   }
-
   .file-label:hover { border-color: var(--accent); }
   .file-label input { display: none; }
 
-  .stats {
-    display: flex;
-    gap: 1.5rem;
-    margin-bottom: 1rem;
-    flex-wrap: wrap;
+  /* Deep scan toggle */
+  .toggle-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; }
+  .toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute; cursor: pointer; inset: 0;
+    background: var(--border); border-radius: 20px; transition: 0.2s;
   }
+  .toggle-slider::before {
+    content: ''; position: absolute; height: 14px; width: 14px;
+    left: 3px; bottom: 3px; background: var(--muted); border-radius: 50%; transition: 0.2s;
+  }
+  .toggle input:checked + .toggle-slider { background: var(--accent); }
+  .toggle input:checked + .toggle-slider::before { transform: translateX(16px); background: white; }
 
+  /* Stats */
+  .stats { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
   .stat {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0.75rem 1.25rem;
-    min-width: 140px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 0.6rem 1rem; min-width: 120px;
   }
-
-  .stat-value {
-    font-size: 1.5rem;
-    font-weight: bold;
-  }
-
-  .stat-label {
-    font-size: 0.7rem;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
+  .stat-value { font-size: 1.4rem; font-weight: bold; }
+  .stat-label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
   .stat-nl .stat-value { color: var(--nl); }
   .stat-eu .stat-value { color: var(--eu); }
   .stat-other .stat-value { color: var(--safe); }
+  .stat-warn .stat-value { color: var(--warn); }
 
-  .progress-bar {
-    height: 3px;
-    background: var(--border);
-    border-radius: 2px;
-    margin-bottom: 1rem;
-    overflow: hidden;
-    display: none;
-  }
-
+  /* Progress */
+  .progress-bar { height: 3px; background: var(--border); border-radius: 2px; margin-bottom: 1rem; overflow: hidden; display: none; }
   .progress-bar.active { display: block; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s; width: 0%; }
 
-  .progress-fill {
-    height: 100%;
-    background: var(--accent);
-    border-radius: 2px;
-    transition: width 0.3s;
-    width: 0%;
-  }
-
-  .results-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.8rem;
-  }
-
-  .results-table th {
-    text-align: left;
-    padding: 0.6rem 0.75rem;
-    border-bottom: 2px solid var(--border);
-    color: var(--muted);
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    position: sticky;
-    top: 0;
-    background: var(--bg);
-  }
-
-  .results-table td {
-    padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid var(--border);
-    vertical-align: top;
-  }
-
-  .results-table tr:hover td { background: var(--surface); }
-
-  .tag {
-    display: inline-block;
-    padding: 0.15rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.7rem;
-    font-weight: 600;
-  }
-
+  /* Tags */
+  .tag { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; }
   .tag-nl { background: rgba(239,68,68,0.15); color: var(--nl); }
   .tag-eu { background: rgba(245,158,11,0.15); color: var(--eu); }
   .tag-other { background: rgba(16,185,129,0.1); color: var(--safe); }
   .tag-error { background: rgba(100,116,139,0.15); color: var(--muted); }
+  .tag-warn { background: rgba(249,115,22,0.15); color: var(--warn); }
+  .tag-info { background: rgba(59,130,246,0.1); color: var(--accent); }
 
-  .ip-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
+  /* Domain cards */
+  .results-area { display: flex; flex-direction: column; gap: 0.75rem; }
+
+  .domain-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
   }
-
-  .ip-entry {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
+  .domain-card summary {
+    padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem;
+    font-size: 0.85rem; list-style: none; user-select: none;
   }
-
-  .export-section {
-    margin-top: 1rem;
-    display: flex;
-    gap: 0.5rem;
+  .domain-card summary::-webkit-details-marker { display: none; }
+  .domain-card summary::before {
+    content: '\25B6'; font-size: 0.6rem; color: var(--muted); transition: transform 0.2s; flex-shrink: 0;
   }
+  .domain-card[open] summary::before { transform: rotate(90deg); }
+  .domain-card[open] summary { border-bottom: 1px solid var(--border); }
+  .domain-card summary:hover { background: var(--surface2); }
 
-  .table-wrapper {
-    overflow-x: auto;
-    border: 1px solid var(--border);
-    border-radius: 8px;
+  .domain-name { font-weight: 600; }
+  .domain-url { color: var(--muted); font-size: 0.7rem; margin-left: 0.5rem; }
+  .domain-summary { margin-left: auto; display: flex; gap: 0.5rem; align-items: center; font-size: 0.75rem; color: var(--muted); }
+
+  .card-body { padding: 0; }
+
+  .layer {
+    border-bottom: 1px solid var(--border); padding: 0.75rem 1rem;
   }
+  .layer:last-child { border-bottom: none; }
 
+  .layer-title {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--muted); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;
+  }
+  .layer-title .count { color: var(--accent); }
+
+  .ip-row {
+    display: flex; align-items: center; gap: 0.5rem; padding: 0.2rem 0; font-size: 0.8rem; flex-wrap: wrap;
+  }
+  .ip-row code { color: var(--text); min-width: 120px; }
+  .ip-row .geo { color: var(--muted); font-size: 0.75rem; }
+  .ip-row .org { color: var(--muted); font-size: 0.7rem; }
+
+  .subdomain-group { margin-bottom: 0.4rem; }
+  .subdomain-name { color: var(--accent); font-size: 0.8rem; font-weight: 500; }
+
+  .header-table { font-size: 0.75rem; }
+  .header-table td { padding: 0.15rem 0.75rem 0.15rem 0; vertical-align: top; }
+  .header-key { color: var(--accent); white-space: nowrap; }
+  .header-val { color: var(--text); word-break: break-all; }
+
+  .cors-note { font-size: 0.7rem; color: var(--muted); font-style: italic; }
+
+  /* Country selector */
+  .country-section { margin-bottom: 1rem; }
+  .country-section label { font-size: 0.8rem; display: block; margin-bottom: 0.4rem; }
+  .country-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.5rem; }
+  .country-chip {
+    padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.7rem; cursor: pointer;
+    background: var(--surface); border: 1px solid var(--border); color: var(--muted); transition: all 0.15s;
+    user-select: none;
+  }
+  .country-chip:hover { border-color: var(--accent); }
+  .country-chip.selected { background: rgba(239,68,68,0.15); border-color: var(--nl); color: var(--nl); }
+  .preset-btns { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+  .preset-btns button { padding: 0.25rem 0.6rem; font-size: 0.7rem; }
+
+  /* Export */
+  .export-section { margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+  /* Expand/collapse all */
+  .toolbar { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; align-items: center; }
+  .toolbar button { padding: 0.35rem 0.75rem; font-size: 0.75rem; }
+
+  /* Log */
   .log {
-    margin-top: 1rem;
-    padding: 0.5rem 0.75rem;
-    background: var(--surface);
-    border-radius: 6px;
-    font-size: 0.75rem;
-    color: var(--muted);
-    max-height: 60px;
-    overflow-y: auto;
+    margin-top: 1rem; padding: 0.5rem 0.75rem; background: var(--surface);
+    border-radius: 6px; font-size: 0.75rem; color: var(--muted); max-height: 80px; overflow-y: auto;
   }
 
   @media (max-width: 600px) {
     body { padding: 1rem; }
     .input-section { flex-direction: column; }
     textarea { min-width: unset; }
+    .ip-row { flex-direction: column; align-items: flex-start; }
   }
 </style>
 </head>
 <body>
 
 <h1>IP Tracer</h1>
-<p class="subtitle">Resolve URLs to IPs, geolocate infrastructure, flag EU / Netherlands hosting</p>
+<p class="subtitle">Deep infrastructure discovery — look behind CDNs, trace origin servers, flag hosting by country</p>
 
 <div class="input-section">
   <textarea id="urlInput" placeholder="Enter URLs, one per line:&#10;https://example.com&#10;https://another-site.nl&#10;cdn.provider.eu"></textarea>
@@ -250,8 +204,27 @@
       Upload CSV
       <input type="file" id="csvFile" accept=".csv,.txt">
     </label>
+    <div class="toggle-row">
+      <label class="toggle">
+        <input type="checkbox" id="deepScan" checked>
+        <span class="toggle-slider"></span>
+      </label>
+      <span>Deep scan (MX, SPF, NS, subdomains, CT)</span>
+    </div>
     <button id="traceBtn" onclick="startTrace()">Trace All</button>
     <button class="btn-secondary" onclick="clearAll()">Clear</button>
+  </div>
+</div>
+
+<div class="country-section">
+  <label>Flag infrastructure in these countries:</label>
+  <div class="country-chips" id="countryChips"></div>
+  <div class="preset-btns">
+    <button class="btn-secondary" onclick="selectPreset('nl')">Netherlands</button>
+    <button class="btn-secondary" onclick="selectPreset('eu')">EU</button>
+    <button class="btn-secondary" onclick="selectPreset('eea')">EU + EEA</button>
+    <button class="btn-secondary" onclick="selectPreset('five-eyes')">Five Eyes</button>
+    <button class="btn-secondary" onclick="selectPreset('none')">Clear</button>
   </div>
 </div>
 
@@ -260,39 +233,18 @@
 </div>
 
 <div class="stats" id="stats" style="display:none">
-  <div class="stat stat-nl">
-    <div class="stat-value" id="nlCount">0</div>
-    <div class="stat-label">Netherlands</div>
-  </div>
-  <div class="stat stat-eu">
-    <div class="stat-value" id="euCount">0</div>
-    <div class="stat-label">EU (other)</div>
-  </div>
-  <div class="stat stat-other">
-    <div class="stat-value" id="otherCount">0</div>
-    <div class="stat-label">Non-EU</div>
-  </div>
-  <div class="stat">
-    <div class="stat-value" id="totalCount">0</div>
-    <div class="stat-label">Total</div>
-  </div>
+  <div class="stat stat-nl"><div class="stat-value" id="flaggedCount">0</div><div class="stat-label" id="flaggedLabel">Flagged</div></div>
+  <div class="stat stat-other"><div class="stat-value" id="clearCount">0</div><div class="stat-label">Clear</div></div>
+  <div class="stat stat-warn"><div class="stat-value" id="mismatchCount">0</div><div class="stat-label">Origin Mismatch</div></div>
+  <div class="stat"><div class="stat-value" id="totalCount">0</div><div class="stat-label">Domains</div></div>
 </div>
 
-<div class="table-wrapper" id="tableWrapper" style="display:none">
-  <table class="results-table">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>URL / Domain</th>
-        <th>IP Address(es)</th>
-        <th>Location</th>
-        <th>ISP / Org</th>
-        <th>Region</th>
-      </tr>
-    </thead>
-    <tbody id="resultsBody"></tbody>
-  </table>
+<div id="toolbar" class="toolbar" style="display:none">
+  <button class="btn-secondary" onclick="toggleAll(true)">Expand All</button>
+  <button class="btn-secondary" onclick="toggleAll(false)">Collapse All</button>
 </div>
+
+<div class="results-area" id="resultsArea"></div>
 
 <div class="export-section" id="exportSection" style="display:none">
   <button class="btn-secondary" onclick="exportCSV()">Export CSV</button>
@@ -303,312 +255,126 @@
 <div class="log" id="log" style="display:none"></div>
 
 <script>
-const EU_COUNTRIES = new Set([
-  'AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR',
-  'DE','GR','HU','IE','IT','LV','LT','LU','MT','NL',
-  'PL','PT','RO','SK','SI','ES','SE'
-]);
+// ============================================================
+// Constants
+// ============================================================
+const ALL_COUNTRIES = {
+  'AF':'Afghanistan','AL':'Albania','DZ':'Algeria','AD':'Andorra','AO':'Angola','AG':'Antigua and Barbuda',
+  'AR':'Argentina','AM':'Armenia','AU':'Australia','AT':'Austria','AZ':'Azerbaijan','BS':'Bahamas',
+  'BH':'Bahrain','BD':'Bangladesh','BB':'Barbados','BY':'Belarus','BE':'Belgium','BZ':'Belize',
+  'BJ':'Benin','BT':'Bhutan','BO':'Bolivia','BA':'Bosnia','BW':'Botswana','BR':'Brazil',
+  'BN':'Brunei','BG':'Bulgaria','BF':'Burkina Faso','BI':'Burundi','CV':'Cabo Verde','KH':'Cambodia',
+  'CM':'Cameroon','CA':'Canada','CF':'Central African Rep.','TD':'Chad','CL':'Chile','CN':'China',
+  'CO':'Colombia','KM':'Comoros','CG':'Congo','CD':'DR Congo','CR':'Costa Rica','HR':'Croatia',
+  'CU':'Cuba','CY':'Cyprus','CZ':'Czechia','DK':'Denmark','DJ':'Djibouti','DM':'Dominica',
+  'DO':'Dominican Rep.','EC':'Ecuador','EG':'Egypt','SV':'El Salvador','GQ':'Eq. Guinea','ER':'Eritrea',
+  'EE':'Estonia','SZ':'Eswatini','ET':'Ethiopia','FJ':'Fiji','FI':'Finland','FR':'France',
+  'GA':'Gabon','GM':'Gambia','GE':'Georgia','DE':'Germany','GH':'Ghana','GR':'Greece',
+  'GD':'Grenada','GT':'Guatemala','GN':'Guinea','GW':'Guinea-Bissau','GY':'Guyana','HT':'Haiti',
+  'HN':'Honduras','HU':'Hungary','IS':'Iceland','IN':'India','ID':'Indonesia','IR':'Iran',
+  'IQ':'Iraq','IE':'Ireland','IL':'Israel','IT':'Italy','JM':'Jamaica','JP':'Japan',
+  'JO':'Jordan','KZ':'Kazakhstan','KE':'Kenya','KI':'Kiribati','KP':'North Korea','KR':'South Korea',
+  'KW':'Kuwait','KG':'Kyrgyzstan','LA':'Laos','LV':'Latvia','LB':'Lebanon','LS':'Lesotho',
+  'LR':'Liberia','LY':'Libya','LI':'Liechtenstein','LT':'Lithuania','LU':'Luxembourg','MG':'Madagascar',
+  'MW':'Malawi','MY':'Malaysia','MV':'Maldives','ML':'Mali','MT':'Malta','MH':'Marshall Is.',
+  'MR':'Mauritania','MU':'Mauritius','MX':'Mexico','FM':'Micronesia','MD':'Moldova','MC':'Monaco',
+  'MN':'Mongolia','ME':'Montenegro','MA':'Morocco','MZ':'Mozambique','MM':'Myanmar','NA':'Namibia',
+  'NR':'Nauru','NP':'Nepal','NL':'Netherlands','NZ':'New Zealand','NI':'Nicaragua','NE':'Niger',
+  'NG':'Nigeria','MK':'North Macedonia','NO':'Norway','OM':'Oman','PK':'Pakistan','PW':'Palau',
+  'PA':'Panama','PG':'Papua New Guinea','PY':'Paraguay','PE':'Peru','PH':'Philippines','PL':'Poland',
+  'PT':'Portugal','QA':'Qatar','RO':'Romania','RU':'Russia','RW':'Rwanda','KN':'St Kitts & Nevis',
+  'LC':'St Lucia','VC':'St Vincent','WS':'Samoa','SM':'San Marino','ST':'Sao Tome','SA':'Saudi Arabia',
+  'SN':'Senegal','RS':'Serbia','SC':'Seychelles','SL':'Sierra Leone','SG':'Singapore','SK':'Slovakia',
+  'SI':'Slovenia','SB':'Solomon Is.','SO':'Somalia','ZA':'South Africa','SS':'South Sudan','ES':'Spain',
+  'LK':'Sri Lanka','SD':'Sudan','SR':'Suriname','SE':'Sweden','CH':'Switzerland','SY':'Syria',
+  'TW':'Taiwan','TJ':'Tajikistan','TZ':'Tanzania','TH':'Thailand','TL':'Timor-Leste','TG':'Togo',
+  'TO':'Tonga','TT':'Trinidad & Tobago','TN':'Tunisia','TR':'Turkey','TM':'Turkmenistan','TV':'Tuvalu',
+  'UG':'Uganda','UA':'Ukraine','AE':'UAE','GB':'United Kingdom','US':'United States','UY':'Uruguay',
+  'UZ':'Uzbekistan','VU':'Vanuatu','VA':'Vatican','VE':'Venezuela','VN':'Vietnam','YE':'Yemen',
+  'ZM':'Zambia','ZW':'Zimbabwe'
+};
 
-// EEA extras (not EU but often grouped)
-const EEA_EXTRA = new Set(['NO','IS','LI']);
+const PRESETS = {
+  nl: ['NL'],
+  eu: ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE'],
+  eea: ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE','NO','IS','LI'],
+  'five-eyes': ['US','GB','CA','AU','NZ'],
+  none: []
+};
+
+let flaggedCountries = new Set(PRESETS.eu);
+
+const KNOWN_CDNS = [
+  'cloudflare', 'akamai', 'fastly', 'cloudfront', 'amazonaws',
+  'incapsula', 'imperva', 'sucuri', 'stackpath', 'cdn77',
+  'bunnycdn', 'edgecast', 'verizon', 'limelight', 'keycdn',
+  'azure', 'googleusercontent', 'gstatic', 'fbcdn'
+];
+
+const PROBE_SUBDOMAINS = [
+  'mail','direct','origin','cpanel','ftp','webmail','smtp',
+  'pop','imap','autodiscover','vpn','admin','dev','staging',
+  'api','ns1','ns2','mx','webdisk','remote'
+];
+
+const INTERESTING_HEADERS = [
+  'server','x-powered-by','via','x-cache','cf-ray',
+  'x-served-by','x-cdn','x-amz-cf-id','x-amz-cf-pop',
+  'x-fastly-request-id','x-github-request-id'
+];
 
 let allResults = [];
+let geoCache = new Map();
 
-// --- CSV file handling ---
-document.getElementById('csvFile').addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    const text = ev.target.result;
-    const urls = parseCSVForURLs(text);
-    document.getElementById('urlInput').value = urls.join('\n');
-    log(`Loaded ${urls.length} URLs from ${file.name}`);
-  };
-  reader.readAsText(file);
-});
-
-function parseCSVForURLs(text) {
-  const urls = [];
-  const lines = text.split(/\r?\n/);
-  for (const line of lines) {
-    // Split by comma, semicolon, or tab
-    const cells = line.split(/[,;\t]/);
-    for (let cell of cells) {
-      cell = cell.trim().replace(/^["']|["']$/g, '');
-      if (looksLikeURL(cell)) urls.push(cell);
-    }
-  }
-  return [...new Set(urls)];
-}
-
-function looksLikeURL(s) {
-  if (!s || s.length < 4) return false;
-  // Has protocol or looks like a domain
-  return /^https?:\/\//i.test(s) || /^[a-z0-9]([a-z0-9-]*\.)+[a-z]{2,}/i.test(s);
-}
-
-function extractDomain(url) {
-  try {
-    url = url.trim();
-    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-    return new URL(url).hostname;
-  } catch {
-    // Fallback: strip protocol-like prefixes and paths
-    return url.replace(/^[a-z]+:\/\//i, '').split('/')[0].split(':')[0];
-  }
-}
-
-// --- DNS resolution via public APIs ---
-async function resolveIPs(domain) {
-  const ips = new Set();
-
-  // Try Cloudflare DoH
-  try {
-    const resp = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=A`, {
-      headers: { 'Accept': 'application/dns-json' }
-    });
-    const data = await resp.json();
-    if (data.Answer) {
-      for (const ans of data.Answer) {
-        if (ans.type === 1) ips.add(ans.data); // A record
-      }
-    }
-  } catch {}
-
-  // Also try AAAA (IPv6)
-  try {
-    const resp = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=AAAA`, {
-      headers: { 'Accept': 'application/dns-json' }
-    });
-    const data = await resp.json();
-    if (data.Answer) {
-      for (const ans of data.Answer) {
-        if (ans.type === 28) ips.add(ans.data); // AAAA record
-      }
-    }
-  } catch {}
-
-  // Try CNAME to find CDN chains
-  try {
-    const resp = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=CNAME`, {
-      headers: { 'Accept': 'application/dns-json' }
-    });
-    const data = await resp.json();
-    if (data.Answer) {
-      for (const ans of data.Answer) {
-        if (ans.type === 5) {
-          // Resolve the CNAME target too
-          const cname = ans.data.replace(/\.$/, '');
-          try {
-            const r2 = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(cname)}&type=A`, {
-              headers: { 'Accept': 'application/dns-json' }
-            });
-            const d2 = await r2.json();
-            if (d2.Answer) {
-              for (const a2 of d2.Answer) {
-                if (a2.type === 1) ips.add(a2.data);
-              }
-            }
-          } catch {}
-        }
-      }
-    }
-  } catch {}
-
-  return [...ips];
-}
-
-// --- IP Geolocation via ip-api.com (batch supported) ---
-async function geolocateBatch(ips) {
-  // ip-api.com supports batch of up to 100
-  const results = new Map();
-  const chunks = [];
-  for (let i = 0; i < ips.length; i += 100) {
-    chunks.push(ips.slice(i, i + 100));
-  }
-
-  for (const chunk of chunks) {
-    try {
-      const resp = await fetch('http://ip-api.com/batch?fields=status,message,query,country,countryCode,regionName,city,isp,org,as,lat,lon', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(chunk.map(ip => ({ query: ip })))
-      });
-      const data = await resp.json();
-      for (const entry of data) {
-        results.set(entry.query, entry);
-      }
-    } catch (err) {
-      // Fallback: query individually
-      for (const ip of chunk) {
-        try {
-          const resp = await fetch(`http://ip-api.com/json/${ip}?fields=status,message,query,country,countryCode,regionName,city,isp,org,as,lat,lon`);
-          const data = await resp.json();
-          results.set(ip, data);
-        } catch {
-          results.set(ip, { status: 'fail', query: ip, message: 'Request failed' });
-        }
-        // Rate limit: 45 req/min for free tier
-        await sleep(1400);
-      }
-    }
-    if (chunks.length > 1) await sleep(1500);
-  }
-
-  return results;
-}
-
+// ============================================================
+// Utilities
+// ============================================================
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-function regionTag(countryCode) {
-  if (countryCode === 'NL') return { label: 'Netherlands', cls: 'tag-nl' };
-  if (EU_COUNTRIES.has(countryCode)) return { label: 'EU', cls: 'tag-eu' };
-  if (EEA_EXTRA.has(countryCode)) return { label: 'EEA', cls: 'tag-eu' };
-  return { label: 'Non-EU', cls: 'tag-other' };
-}
-
-// --- Main trace ---
-async function startTrace() {
-  const input = document.getElementById('urlInput').value.trim();
-  if (!input) return;
-
-  const rawUrls = input.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-  const urls = [...new Set(rawUrls)];
-
-  const btn = document.getElementById('traceBtn');
-  btn.disabled = true;
-  btn.textContent = 'Tracing...';
-
-  const progressBar = document.getElementById('progressBar');
-  const progressFill = document.getElementById('progressFill');
-  progressBar.classList.add('active');
-  progressFill.style.width = '0%';
-
-  document.getElementById('stats').style.display = 'flex';
-  document.getElementById('tableWrapper').style.display = 'block';
-  document.getElementById('exportSection').style.display = 'flex';
-  document.getElementById('log').style.display = 'block';
-  document.getElementById('resultsBody').innerHTML = '';
-
-  allResults = [];
-  let nlCount = 0, euCount = 0, otherCount = 0;
-
-  log(`Starting trace for ${urls.length} URLs...`);
-
-  // Step 1: Resolve all domains to IPs
-  const domainIPs = [];
-  for (let i = 0; i < urls.length; i++) {
-    const domain = extractDomain(urls[i]);
-    log(`Resolving ${domain}...`);
-    const ips = await resolveIPs(domain);
-    domainIPs.push({ url: urls[i], domain, ips });
-    progressFill.style.width = `${((i + 1) / urls.length * 50)}%`;
-    // Small delay to avoid hammering DNS
-    if (i > 0 && i % 10 === 0) await sleep(200);
-  }
-
-  // Step 2: Collect all unique IPs
-  const allIPs = new Set();
-  for (const d of domainIPs) {
-    for (const ip of d.ips) allIPs.add(ip);
-  }
-
-  log(`Resolved ${allIPs.size} unique IPs. Geolocating...`);
-
-  // Step 3: Batch geolocate
-  const geoData = await geolocateBatch([...allIPs]);
-
-  progressFill.style.width = '90%';
-
-  // Step 4: Build results
-  for (let i = 0; i < domainIPs.length; i++) {
-    const { url, domain, ips } = domainIPs[i];
-    const ipResults = ips.map(ip => {
-      const geo = geoData.get(ip) || { status: 'fail' };
-      return { ip, geo };
-    });
-
-    // Determine worst-case region flag
-    let hasNL = false, hasEU = false;
-    for (const { geo } of ipResults) {
-      if (geo.countryCode === 'NL') hasNL = true;
-      else if (EU_COUNTRIES.has(geo.countryCode) || EEA_EXTRA.has(geo.countryCode)) hasEU = true;
-    }
-
-    if (hasNL) nlCount++;
-    else if (hasEU) euCount++;
-    else otherCount++;
-
-    const result = { index: i + 1, url, domain, ips: ipResults, hasNL, hasEU };
-    allResults.push(result);
-    renderRow(result);
-
-    document.getElementById('nlCount').textContent = nlCount;
-    document.getElementById('euCount').textContent = euCount;
-    document.getElementById('otherCount').textContent = otherCount;
-    document.getElementById('totalCount').textContent = i + 1;
-  }
-
-  progressFill.style.width = '100%';
-  setTimeout(() => progressBar.classList.remove('active'), 1000);
-
-  log(`Done. ${nlCount} NL, ${euCount} EU, ${otherCount} non-EU out of ${urls.length} URLs.`);
-  btn.disabled = false;
-  btn.textContent = 'Trace All';
-}
-
-function renderRow(result) {
-  const tbody = document.getElementById('resultsBody');
-  const tr = document.createElement('tr');
-
-  const regionInfo = result.hasNL
-    ? regionTag('NL')
-    : result.hasEU
-      ? regionTag('EU_OTHER')
-      : regionTag('XX');
-
-  // Determine tag from IPs
-  let overallTag;
-  if (result.hasNL) overallTag = '<span class="tag tag-nl">NL</span>';
-  else if (result.hasEU) overallTag = '<span class="tag tag-eu">EU</span>';
-  else if (result.ips.length === 0) overallTag = '<span class="tag tag-error">No IPs</span>';
-  else overallTag = '<span class="tag tag-other">Non-EU</span>';
-
-  const ipCells = result.ips.map(({ ip, geo }) => {
-    const tag = geo.status === 'success' ? regionTag(geo.countryCode) : { label: 'Error', cls: 'tag-error' };
-    const loc = geo.status === 'success' ? `${geo.city || '?'}, ${geo.country || '?'}` : 'Unknown';
-    return `<div class="ip-entry">
-      <code>${ip}</code>
-      <span class="tag ${tag.cls}">${tag.label}</span>
-      <span style="color:var(--muted)">${loc}</span>
-    </div>`;
-  }).join('');
-
-  const ispOrg = result.ips.map(({ geo }) =>
-    geo.status === 'success' ? (geo.org || geo.isp || geo.as || '-') : '-'
-  ).filter((v, i, a) => a.indexOf(v) === i).join(', ');
-
-  const regions = result.ips.map(({ geo }) =>
-    geo.status === 'success' ? `${geo.regionName || ''}, ${geo.country || ''}` : '-'
-  ).filter((v, i, a) => a.indexOf(v) === i).join('; ');
-
-  tr.innerHTML = `
-    <td>${result.index}</td>
-    <td><strong>${escapeHtml(result.domain)}</strong><br><span style="color:var(--muted);font-size:0.7rem">${escapeHtml(result.url)}</span></td>
-    <td><div class="ip-list">${ipCells || '<span style="color:var(--muted)">No records</span>'}</div></td>
-    <td>${overallTag}</td>
-    <td style="color:var(--muted)">${escapeHtml(ispOrg)}</td>
-    <td style="color:var(--muted)">${escapeHtml(regions)}</td>
-  `;
-
-  tbody.appendChild(tr);
-}
 
 function escapeHtml(s) {
   const d = document.createElement('div');
   d.textContent = s || '';
   return d.innerHTML;
+}
+
+function regionTag(countryCode) {
+  if (flaggedCountries.has(countryCode)) return { label: countryCode, cls: 'tag-nl' };
+  return { label: countryCode || '??', cls: 'tag-other' };
+}
+
+function isFlagged(countryCode) {
+  return flaggedCountries.has(countryCode);
+}
+
+// Country chip UI
+function renderCountryChips() {
+  const container = document.getElementById('countryChips');
+  container.innerHTML = '';
+  const sorted = Object.entries(ALL_COUNTRIES).sort((a, b) => a[1].localeCompare(b[1]));
+  for (const [code, name] of sorted) {
+    const chip = document.createElement('span');
+    chip.className = 'country-chip' + (flaggedCountries.has(code) ? ' selected' : '');
+    chip.textContent = `${code}`;
+    chip.title = name;
+    chip.onclick = () => {
+      if (flaggedCountries.has(code)) flaggedCountries.delete(code);
+      else flaggedCountries.add(code);
+      chip.classList.toggle('selected');
+    };
+    container.appendChild(chip);
+  }
+}
+
+function selectPreset(key) {
+  flaggedCountries = new Set(PRESETS[key] || []);
+  renderCountryChips();
+}
+
+renderCountryChips();
+
+function isCDN(str) {
+  const lower = (str || '').toLowerCase();
+  return KNOWN_CDNS.some(cdn => lower.includes(cdn));
 }
 
 function log(msg) {
@@ -619,43 +385,736 @@ function log(msg) {
   el.scrollTop = el.scrollHeight;
 }
 
-// --- Export functions ---
-function exportCSV() {
-  const rows = [['#', 'URL', 'Domain', 'IPs', 'Countries', 'Region Flag', 'ISP/Org', 'City', 'Lat', 'Lon']];
-  for (const r of allResults) {
-    for (const { ip, geo } of r.ips) {
-      rows.push([
-        r.index,
-        r.url,
-        r.domain,
-        ip,
-        geo.country || '',
-        geo.countryCode === 'NL' ? 'NL' : EU_COUNTRIES.has(geo.countryCode) ? 'EU' : 'Non-EU',
-        geo.org || geo.isp || '',
-        geo.city || '',
-        geo.lat || '',
-        geo.lon || ''
-      ]);
+// ============================================================
+// Input parsing
+// ============================================================
+document.getElementById('csvFile').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const urls = parseCSVForURLs(ev.target.result);
+    document.getElementById('urlInput').value = urls.join('\n');
+    log(`Loaded ${urls.length} URLs from ${file.name}`);
+  };
+  reader.readAsText(file);
+});
+
+function parseCSVForURLs(text) {
+  const urls = [];
+  for (const line of text.split(/\r?\n/)) {
+    for (let cell of line.split(/[,;\t]/)) {
+      cell = cell.trim().replace(/^["']|["']$/g, '');
+      if (looksLikeURL(cell)) urls.push(cell);
     }
   }
-  downloadCSV(rows, 'ip-trace-results.csv');
+  return [...new Set(urls)];
+}
+
+function looksLikeURL(s) {
+  if (!s || s.length < 4) return false;
+  return /^https?:\/\//i.test(s) || /^[a-z0-9]([a-z0-9-]*\.)+[a-z]{2,}/i.test(s);
+}
+
+function extractDomain(url) {
+  try {
+    url = url.trim();
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    return new URL(url).hostname;
+  } catch {
+    return url.replace(/^[a-z]+:\/\//i, '').split('/')[0].split(':')[0];
+  }
+}
+
+// ============================================================
+// DNS Resolution (Cloudflare DoH)
+// ============================================================
+async function dohQuery(name, type) {
+  try {
+    const resp = await fetch(
+      `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(name)}&type=${type}`,
+      { headers: { 'Accept': 'application/dns-json' } }
+    );
+    return await resp.json();
+  } catch { return {}; }
+}
+
+const DNS_TYPE = { A: 1, AAAA: 28, CNAME: 5, MX: 15, TXT: 16, NS: 2 };
+
+async function resolveARecords(domain) {
+  const ips = new Set();
+  const cnames = [];
+
+  const [aData, aaaaData, cnameData] = await Promise.all([
+    dohQuery(domain, 'A'),
+    dohQuery(domain, 'AAAA'),
+    dohQuery(domain, 'CNAME')
+  ]);
+
+  if (aData.Answer) for (const a of aData.Answer) { if (a.type === DNS_TYPE.A) ips.add(a.data); }
+  if (aaaaData.Answer) for (const a of aaaaData.Answer) { if (a.type === DNS_TYPE.AAAA) ips.add(a.data); }
+
+  if (cnameData.Answer) {
+    for (const a of cnameData.Answer) {
+      if (a.type === DNS_TYPE.CNAME) {
+        const target = a.data.replace(/\.$/, '');
+        cnames.push(target);
+        const r = await dohQuery(target, 'A');
+        if (r.Answer) for (const a2 of r.Answer) { if (a2.type === DNS_TYPE.A) ips.add(a2.data); }
+      }
+    }
+  }
+
+  return { ips: [...ips], cnames };
+}
+
+async function resolveMX(domain) {
+  const records = [];
+  const data = await dohQuery(domain, 'MX');
+  if (!data.Answer) return records;
+
+  const mxEntries = data.Answer
+    .filter(a => a.type === DNS_TYPE.MX)
+    .map(a => {
+      const parts = a.data.split(/\s+/);
+      return { priority: parseInt(parts[0]) || 0, exchange: (parts[1] || '').replace(/\.$/, '') };
+    })
+    .filter(m => m.exchange);
+
+  for (const mx of mxEntries) {
+    const r = await dohQuery(mx.exchange, 'A');
+    const ips = [];
+    if (r.Answer) for (const a of r.Answer) { if (a.type === DNS_TYPE.A) ips.push(a.data); }
+    records.push({ ...mx, ips });
+  }
+  return records;
+}
+
+async function resolveNS(domain) {
+  const records = [];
+  const data = await dohQuery(domain, 'NS');
+  if (!data.Answer) return records;
+
+  const nsNames = data.Answer
+    .filter(a => a.type === DNS_TYPE.NS)
+    .map(a => a.data.replace(/\.$/, ''));
+
+  for (const ns of nsNames) {
+    const r = await dohQuery(ns, 'A');
+    const ips = [];
+    if (r.Answer) for (const a of r.Answer) { if (a.type === DNS_TYPE.A) ips.push(a.data); }
+    records.push({ nameserver: ns, ips });
+  }
+  return records;
+}
+
+async function resolveSPF(domain, depth = 0, visited = new Set()) {
+  const result = { ips: [], includes: [] };
+  if (depth > 3 || visited.has(domain)) return result;
+  visited.add(domain);
+
+  const data = await dohQuery(domain, 'TXT');
+  if (!data.Answer) return result;
+
+  const txtRecords = data.Answer
+    .filter(a => a.type === DNS_TYPE.TXT)
+    .map(a => a.data.replace(/^"|"$/g, ''));
+
+  const spfRecord = txtRecords.find(t => t.startsWith('v=spf1'));
+  if (!spfRecord) return result;
+
+  // Extract ip4/ip6
+  const ip4Matches = spfRecord.match(/ip4:([^\s]+)/g) || [];
+  for (const m of ip4Matches) {
+    const ip = m.replace('ip4:', '').split('/')[0];
+    result.ips.push({ ip, source: `SPF ip4 (${domain})` });
+  }
+  const ip6Matches = spfRecord.match(/ip6:([^\s]+)/g) || [];
+  for (const m of ip6Matches) {
+    const ip = m.replace('ip6:', '').split('/')[0];
+    result.ips.push({ ip, source: `SPF ip6 (${domain})` });
+  }
+
+  // Extract a: directives
+  const aMatches = spfRecord.match(/\ba:([^\s]+)/g) || [];
+  for (const m of aMatches) {
+    const host = m.replace('a:', '').split('/')[0];
+    const r = await dohQuery(host, 'A');
+    if (r.Answer) for (const a of r.Answer) {
+      if (a.type === DNS_TYPE.A) result.ips.push({ ip: a.data, source: `SPF a:${host}` });
+    }
+  }
+
+  // Extract mx directives
+  const mxDir = spfRecord.match(/\bmx\b/);
+  if (mxDir) {
+    const mxData = await dohQuery(domain, 'MX');
+    if (mxData.Answer) {
+      for (const a of mxData.Answer) {
+        if (a.type === DNS_TYPE.MX) {
+          const exch = a.data.split(/\s+/)[1]?.replace(/\.$/, '');
+          if (exch) {
+            const r = await dohQuery(exch, 'A');
+            if (r.Answer) for (const a2 of r.Answer) {
+              if (a2.type === DNS_TYPE.A) result.ips.push({ ip: a2.data, source: `SPF mx (${exch})` });
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Recurse includes
+  const includes = spfRecord.match(/include:([^\s]+)/g) || [];
+  for (const inc of includes) {
+    const incDomain = inc.replace('include:', '');
+    result.includes.push(incDomain);
+    const sub = await resolveSPF(incDomain, depth + 1, visited);
+    result.ips.push(...sub.ips);
+    result.includes.push(...sub.includes);
+  }
+
+  // Cap at 50
+  result.ips = result.ips.slice(0, 50);
+  result.includes = [...new Set(result.includes)];
+  return result;
+}
+
+// ============================================================
+// Subdomain probing
+// ============================================================
+async function probeSubdomains(domain) {
+  const results = [];
+  // Run in batches of 5
+  for (let i = 0; i < PROBE_SUBDOMAINS.length; i += 5) {
+    const batch = PROBE_SUBDOMAINS.slice(i, i + 5);
+    const resolved = await Promise.all(batch.map(async (sub) => {
+      const fqdn = `${sub}.${domain}`;
+      const data = await dohQuery(fqdn, 'A');
+      const ips = [];
+      if (data.Answer) for (const a of data.Answer) { if (a.type === DNS_TYPE.A) ips.push(a.data); }
+      return ips.length > 0 ? { subdomain: fqdn, prefix: sub, ips } : null;
+    }));
+    for (const r of resolved) { if (r) results.push(r); }
+  }
+  return results;
+}
+
+// ============================================================
+// Certificate Transparency (crt.sh)
+// ============================================================
+async function queryCT(domain) {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12000);
+    const resp = await fetch(
+      `https://crt.sh/?q=${encodeURIComponent(domain)}&output=json`,
+      { signal: ctrl.signal }
+    );
+    clearTimeout(timer);
+    const data = await resp.json();
+
+    const seen = new Set();
+    const subdomains = [];
+    for (const entry of data) {
+      const names = (entry.name_value || '').split(/\n/);
+      for (let name of names) {
+        name = name.replace(/^\*\./, '').trim().toLowerCase();
+        if (name && name !== domain && name.endsWith(domain) && !seen.has(name)) {
+          seen.add(name);
+          subdomains.push(name);
+        }
+      }
+      if (seen.size >= 50) break;
+    }
+
+    // Resolve discovered subdomains (batch of 5)
+    const results = [];
+    for (let i = 0; i < subdomains.length; i += 5) {
+      const batch = subdomains.slice(i, i + 5);
+      const resolved = await Promise.all(batch.map(async (sub) => {
+        const data = await dohQuery(sub, 'A');
+        const ips = [];
+        if (data.Answer) for (const a of data.Answer) { if (a.type === DNS_TYPE.A) ips.push(a.data); }
+        return ips.length > 0 ? { subdomain: sub, ips } : null;
+      }));
+      for (const r of resolved) { if (r) results.push(r); }
+    }
+    return { discovered: seen.size, resolved: results };
+  } catch (e) {
+    return { discovered: 0, resolved: [], error: e.name === 'AbortError' ? 'Timeout' : e.message };
+  }
+}
+
+// ============================================================
+// HTTP Header probing
+// ============================================================
+async function probeHeaders(url) {
+  try {
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    const resp = await fetch(url, { method: 'HEAD', mode: 'cors', signal: ctrl.signal });
+    clearTimeout(timer);
+
+    const headers = {};
+    for (const key of INTERESTING_HEADERS) {
+      const val = resp.headers.get(key);
+      if (val) headers[key] = val;
+    }
+    return Object.keys(headers).length > 0 ? headers : null;
+  } catch {
+    return null; // CORS blocked or network error — expected for most sites
+  }
+}
+
+// ============================================================
+// Geolocation (ipwho.is — free, HTTPS, no API key)
+// ============================================================
+async function geolocateBatch(ips) {
+  const needed = ips.filter(ip => !geoCache.has(ip));
+
+  // ipwho.is has no batch endpoint, so we parallelize with concurrency limit
+  const CONCURRENCY = 5;
+  for (let i = 0; i < needed.length; i += CONCURRENCY) {
+    const batch = needed.slice(i, i + CONCURRENCY);
+    const results = await Promise.allSettled(batch.map(async (ip) => {
+      try {
+        const resp = await fetch(`https://ipwho.is/${ip}`);
+        const data = await resp.json();
+        if (data.success !== false) {
+          geoCache.set(ip, {
+            status: 'success', query: ip,
+            country: data.country, countryCode: data.country_code,
+            regionName: data.region, city: data.city,
+            isp: data.connection?.isp || '', org: data.connection?.org || '',
+            as: data.connection?.asn ? `AS${data.connection.asn}` : '',
+            lat: data.latitude, lon: data.longitude
+          });
+        } else {
+          geoCache.set(ip, { status: 'fail', query: ip });
+        }
+      } catch {
+        geoCache.set(ip, { status: 'fail', query: ip });
+      }
+    }));
+    // Small delay between batches to be respectful
+    if (i + CONCURRENCY < needed.length) await sleep(300);
+  }
+}
+
+function geo(ip) { return geoCache.get(ip) || { status: 'fail', query: ip }; }
+
+// ============================================================
+// Main trace orchestration
+// ============================================================
+async function startTrace() {
+  const input = document.getElementById('urlInput').value.trim();
+  if (!input) return;
+
+  const rawUrls = input.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  const urls = [...new Set(rawUrls)];
+  const deep = document.getElementById('deepScan').checked;
+
+  const btn = document.getElementById('traceBtn');
+  btn.disabled = true;
+  btn.textContent = deep ? 'Deep scanning...' : 'Tracing...';
+
+  const progressBar = document.getElementById('progressBar');
+  const progressFill = document.getElementById('progressFill');
+  progressBar.classList.add('active');
+  progressFill.style.width = '0%';
+
+  document.getElementById('stats').style.display = 'flex';
+  document.getElementById('toolbar').style.display = 'flex';
+  document.getElementById('exportSection').style.display = 'flex';
+  document.getElementById('log').style.display = 'block';
+  document.getElementById('resultsArea').innerHTML = '';
+
+  allResults = [];
+  geoCache = new Map();
+
+  log(`Starting ${deep ? 'deep ' : ''}trace for ${urls.length} URLs...`);
+
+  // Phase 1: Resolve all layers per domain
+  const domainData = [];
+  for (let i = 0; i < urls.length; i++) {
+    const domain = extractDomain(urls[i]);
+    log(`[${i + 1}/${urls.length}] Scanning ${domain}...`);
+
+    const entry = { url: urls[i], domain, layers: {} };
+
+    if (deep) {
+      // Run all probes in parallel
+      const [cdn, mx, spf, ns, subs, ct, headers] = await Promise.allSettled([
+        resolveARecords(domain),
+        resolveMX(domain),
+        resolveSPF(domain),
+        resolveNS(domain),
+        probeSubdomains(domain),
+        queryCT(domain),
+        probeHeaders(urls[i])
+      ]);
+
+      entry.layers.cdn = cdn.status === 'fulfilled' ? cdn.value : { ips: [], cnames: [] };
+      entry.layers.mx = mx.status === 'fulfilled' ? mx.value : [];
+      entry.layers.spf = spf.status === 'fulfilled' ? spf.value : { ips: [], includes: [] };
+      entry.layers.ns = ns.status === 'fulfilled' ? ns.value : [];
+      entry.layers.subdomains = subs.status === 'fulfilled' ? subs.value : [];
+      entry.layers.ct = ct.status === 'fulfilled' ? ct.value : { discovered: 0, resolved: [] };
+      entry.layers.headers = headers.status === 'fulfilled' ? headers.value : null;
+    } else {
+      const cdn = await resolveARecords(domain);
+      entry.layers.cdn = cdn;
+    }
+
+    domainData.push(entry);
+    progressFill.style.width = `${((i + 1) / urls.length * 60)}%`;
+  }
+
+  // Phase 2: Collect all unique IPs
+  const allIPs = new Set();
+  for (const d of domainData) {
+    const L = d.layers;
+    for (const ip of (L.cdn?.ips || [])) allIPs.add(ip);
+    for (const mx of (L.mx || [])) for (const ip of mx.ips) allIPs.add(ip);
+    for (const s of (L.spf?.ips || [])) allIPs.add(s.ip);
+    for (const ns of (L.ns || [])) for (const ip of ns.ips) allIPs.add(ip);
+    for (const sub of (L.subdomains || [])) for (const ip of sub.ips) allIPs.add(ip);
+    for (const sub of (L.ct?.resolved || [])) for (const ip of sub.ips) allIPs.add(ip);
+  }
+
+  log(`Collected ${allIPs.size} unique IPs. Geolocating...`);
+  progressFill.style.width = '65%';
+
+  // Phase 3: Batch geolocate
+  await geolocateBatch([...allIPs]);
+  progressFill.style.width = '85%';
+
+  // Phase 4: Compute flags and render
+  let flaggedCount = 0, clearCount = 0, mismatchCount = 0;
+
+  for (let i = 0; i < domainData.length; i++) {
+    const d = domainData[i];
+    const flags = computeFlags(d);
+    d.flags = flags;
+    d.index = i + 1;
+
+    if (flags.isFlaggedDomain) flaggedCount++;
+    else clearCount++;
+    if (flags.originMismatch) mismatchCount++;
+
+    allResults.push(d);
+    renderDomainCard(d);
+
+    document.getElementById('flaggedCount').textContent = flaggedCount;
+    document.getElementById('clearCount').textContent = clearCount;
+    document.getElementById('mismatchCount').textContent = mismatchCount;
+    document.getElementById('totalCount').textContent = i + 1;
+  }
+
+  // Update flagged label with selected countries
+  const selCodes = [...flaggedCountries].slice(0, 5).join(', ');
+  document.getElementById('flaggedLabel').textContent = `Flagged (${selCodes}${flaggedCountries.size > 5 ? '...' : ''})`;
+
+  progressFill.style.width = '100%';
+  setTimeout(() => progressBar.classList.remove('active'), 1000);
+
+  log(`Done. ${flaggedCount} flagged, ${clearCount} clear, ${mismatchCount} origin mismatches.`);
+  btn.disabled = false;
+  btn.textContent = 'Trace All';
+}
+
+function computeFlags(d) {
+  const L = d.layers;
+  let hitCountries = new Set(); // flagged countries found
+  const allCountries = { cdn: new Set(), origin: new Set() };
+
+  const checkIP = (ip, target) => {
+    const g = geo(ip);
+    if (g.countryCode && isFlagged(g.countryCode)) hitCountries.add(g.countryCode);
+    if (g.countryCode) target.add(g.countryCode);
+  };
+
+  // CDN layer
+  for (const ip of (L.cdn?.ips || [])) checkIP(ip, allCountries.cdn);
+
+  // Origin layers (MX, SPF, subdomains, CT)
+  const originIPs = [];
+  for (const mx of (L.mx || [])) originIPs.push(...mx.ips);
+  for (const s of (L.spf?.ips || [])) originIPs.push(s.ip);
+  for (const sub of (L.subdomains || [])) originIPs.push(...sub.ips);
+  for (const sub of (L.ct?.resolved || [])) originIPs.push(...sub.ips);
+  for (const ip of originIPs) checkIP(ip, allCountries.origin);
+
+  // NS layer
+  for (const ns of (L.ns || [])) {
+    for (const ip of ns.ips) checkIP(ip, allCountries.cdn);
+  }
+
+  const isFlaggedDomain = hitCountries.size > 0;
+
+  // Origin mismatch: origin IPs point to different countries than CDN
+  const cdnIsCDN = (L.cdn?.cnames || []).some(c => isCDN(c)) ||
+    (L.cdn?.ips || []).some(ip => isCDN(geo(ip).org || '') || isCDN(geo(ip).isp || ''));
+  const originMismatch = cdnIsCDN && allCountries.origin.size > 0 &&
+    ![...allCountries.origin].every(c => allCountries.cdn.has(c));
+
+  return { isFlaggedDomain, hitCountries: [...hitCountries], originMismatch, cdnIsCDN };
+}
+
+// ============================================================
+// Rendering
+// ============================================================
+function renderIPRow(ip) {
+  const g = geo(ip);
+  if (g.status !== 'success') {
+    return `<div class="ip-row"><code>${escapeHtml(ip)}</code><span class="tag tag-error">Unknown</span></div>`;
+  }
+  const tag = regionTag(g.countryCode);
+  const cdnTag = isCDN(g.org || g.isp || '') ? ' <span class="tag tag-info">CDN</span>' : '';
+  return `<div class="ip-row">
+    <code>${escapeHtml(ip)}</code>
+    <span class="tag ${tag.cls}">${tag.label}</span>${cdnTag}
+    <span class="geo">${escapeHtml(g.city || '?')}, ${escapeHtml(g.country || '?')}</span>
+    <span class="org">${escapeHtml(g.org || g.isp || '')}</span>
+  </div>`;
+}
+
+function renderDomainCard(d) {
+  const area = document.getElementById('resultsArea');
+  const L = d.layers;
+  const f = d.flags;
+  const deep = document.getElementById('deepScan').checked;
+
+  // Summary tags
+  let badges = '';
+  if (f.isFlaggedDomain) {
+    badges += f.hitCountries.map(c => `<span class="tag tag-nl">${c}</span>`).join(' ') + ' ';
+  } else {
+    badges += '<span class="tag tag-other">Clear</span> ';
+  }
+  if (f.originMismatch) badges += '<span class="tag tag-warn">Origin Mismatch</span> ';
+  if (f.cdnIsCDN) badges += '<span class="tag tag-info">Behind CDN</span> ';
+
+  const totalIPs = countUniqueIPs(d);
+  const summaryText = `${totalIPs} IPs`;
+
+  let layers = '';
+
+  // CDN Layer
+  if (L.cdn?.ips?.length) {
+    const cnameInfo = L.cdn.cnames.length
+      ? `<div style="font-size:0.75rem;color:var(--muted);margin-bottom:0.3rem">CNAME chain: ${L.cdn.cnames.map(escapeHtml).join(' → ')}</div>`
+      : '';
+    layers += `<div class="layer">
+      <div class="layer-title">A/AAAA Records (CDN Layer) <span class="count">${L.cdn.ips.length}</span></div>
+      ${cnameInfo}
+      ${L.cdn.ips.map(renderIPRow).join('')}
+    </div>`;
+  }
+
+  if (!deep) {
+    // Non-deep: just CDN layer
+  } else {
+    // MX Layer
+    if (L.mx?.length) {
+      let mxHtml = '';
+      for (const mx of L.mx) {
+        mxHtml += `<div class="subdomain-group">
+          <div class="subdomain-name">${escapeHtml(mx.exchange)} <span style="color:var(--muted)">(priority ${mx.priority})</span></div>
+          ${mx.ips.map(renderIPRow).join('') || '<div class="ip-row" style="color:var(--muted)">No A records</div>'}
+        </div>`;
+      }
+      layers += `<div class="layer">
+        <div class="layer-title">MX Records (Mail Servers) <span class="count">${L.mx.length}</span></div>
+        ${mxHtml}
+      </div>`;
+    }
+
+    // SPF Layer
+    if (L.spf?.ips?.length) {
+      const incInfo = L.spf.includes.length
+        ? `<div style="font-size:0.7rem;color:var(--muted);margin-bottom:0.3rem">SPF includes: ${L.spf.includes.map(escapeHtml).join(', ')}</div>`
+        : '';
+      layers += `<div class="layer">
+        <div class="layer-title">SPF Record IPs <span class="count">${L.spf.ips.length}</span></div>
+        ${incInfo}
+        ${L.spf.ips.map(s => {
+          const row = renderIPRow(s.ip);
+          return row.replace('</div>', ` <span style="font-size:0.65rem;color:var(--muted)">${escapeHtml(s.source)}</span></div>`);
+        }).join('')}
+      </div>`;
+    }
+
+    // NS Layer
+    if (L.ns?.length) {
+      let nsHtml = '';
+      for (const ns of L.ns) {
+        nsHtml += `<div class="subdomain-group">
+          <div class="subdomain-name">${escapeHtml(ns.nameserver)}</div>
+          ${ns.ips.map(renderIPRow).join('')}
+        </div>`;
+      }
+      layers += `<div class="layer">
+        <div class="layer-title">NS Records (DNS Infrastructure) <span class="count">${L.ns.length}</span></div>
+        ${nsHtml}
+      </div>`;
+    }
+
+    // Subdomain probing
+    if (L.subdomains?.length) {
+      let subHtml = '';
+      for (const sub of L.subdomains) {
+        subHtml += `<div class="subdomain-group">
+          <div class="subdomain-name">${escapeHtml(sub.subdomain)}</div>
+          ${sub.ips.map(renderIPRow).join('')}
+        </div>`;
+      }
+      layers += `<div class="layer">
+        <div class="layer-title">Subdomain Probing <span class="count">${L.subdomains.length} found</span></div>
+        ${subHtml}
+      </div>`;
+    }
+
+    // CT Layer
+    if (L.ct?.resolved?.length) {
+      let ctHtml = '';
+      if (L.ct.error) ctHtml += `<div style="color:var(--muted);font-size:0.75rem">crt.sh: ${escapeHtml(L.ct.error)}</div>`;
+      for (const sub of L.ct.resolved) {
+        ctHtml += `<div class="subdomain-group">
+          <div class="subdomain-name">${escapeHtml(sub.subdomain)}</div>
+          ${sub.ips.map(renderIPRow).join('')}
+        </div>`;
+      }
+      layers += `<div class="layer">
+        <div class="layer-title">Certificate Transparency <span class="count">${L.ct.discovered} certs, ${L.ct.resolved.length} resolved</span></div>
+        ${ctHtml}
+      </div>`;
+    } else if (L.ct?.error) {
+      layers += `<div class="layer">
+        <div class="layer-title">Certificate Transparency</div>
+        <div style="color:var(--muted);font-size:0.75rem">crt.sh: ${escapeHtml(L.ct.error)}</div>
+      </div>`;
+    }
+
+    // HTTP Headers
+    if (L.headers) {
+      let hdrHtml = '<table class="header-table">';
+      for (const [k, v] of Object.entries(L.headers)) {
+        hdrHtml += `<tr><td class="header-key">${escapeHtml(k)}</td><td class="header-val">${escapeHtml(v)}</td></tr>`;
+      }
+      hdrHtml += '</table>';
+      layers += `<div class="layer">
+        <div class="layer-title">HTTP Headers</div>
+        ${hdrHtml}
+      </div>`;
+    } else if (deep) {
+      layers += `<div class="layer">
+        <div class="layer-title">HTTP Headers</div>
+        <div class="cors-note">Not available (CORS blocked or no response)</div>
+      </div>`;
+    }
+  }
+
+  // If no layers at all
+  if (!layers) {
+    layers = '<div class="layer"><div style="color:var(--muted)">No records found</div></div>';
+  }
+
+  const card = document.createElement('details');
+  card.className = 'domain-card';
+  if (f.isFlaggedDomain || f.originMismatch) card.open = true; // Auto-expand flagged domains
+  card.innerHTML = `
+    <summary>
+      <span class="domain-name">${escapeHtml(d.domain)}</span>
+      <span class="domain-url">${escapeHtml(d.url)}</span>
+      <span class="domain-summary">${summaryText} ${badges}</span>
+    </summary>
+    <div class="card-body">${layers}</div>
+  `;
+
+  area.appendChild(card);
+}
+
+function countUniqueIPs(d) {
+  const ips = new Set();
+  const L = d.layers;
+  for (const ip of (L.cdn?.ips || [])) ips.add(ip);
+  for (const mx of (L.mx || [])) for (const ip of mx.ips) ips.add(ip);
+  for (const s of (L.spf?.ips || [])) ips.add(s.ip);
+  for (const ns of (L.ns || [])) for (const ip of ns.ips) ips.add(ip);
+  for (const sub of (L.subdomains || [])) for (const ip of sub.ips) ips.add(ip);
+  for (const sub of (L.ct?.resolved || [])) for (const ip of sub.ips) ips.add(ip);
+  return ips.size;
+}
+
+function toggleAll(open) {
+  document.querySelectorAll('.domain-card').forEach(d => d.open = open);
+}
+
+function clearAll() {
+  document.getElementById('urlInput').value = '';
+  document.getElementById('resultsArea').innerHTML = '';
+  document.getElementById('stats').style.display = 'none';
+  document.getElementById('toolbar').style.display = 'none';
+  document.getElementById('exportSection').style.display = 'none';
+  document.getElementById('log').style.display = 'none';
+  document.getElementById('log').innerHTML = '';
+  document.getElementById('csvFile').value = '';
+  allResults = [];
+  geoCache = new Map();
+}
+
+// ============================================================
+// Exports
+// ============================================================
+function exportCSV() {
+  const rows = [['#', 'URL', 'Domain', 'Layer', 'Detail', 'IP', 'Country', 'Country Code', 'Region Flag', 'City', 'ISP/Org', 'AS', 'Lat', 'Lon']];
+  for (const d of allResults) {
+    const L = d.layers;
+    const addRow = (layer, detail, ip) => {
+      const g = geo(ip);
+      rows.push([
+        d.index, d.url, d.domain, layer, detail, ip,
+        g.country || '', g.countryCode || '',
+        isFlagged(g.countryCode) ? 'FLAGGED' : 'Clear',
+        g.city || '', g.org || g.isp || '', g.as || '', g.lat || '', g.lon || ''
+      ]);
+    };
+    for (const ip of (L.cdn?.ips || [])) addRow('CDN', L.cdn.cnames.join(' > ') || 'A/AAAA', ip);
+    for (const mx of (L.mx || [])) for (const ip of mx.ips) addRow('MX', mx.exchange, ip);
+    for (const s of (L.spf?.ips || [])) addRow('SPF', s.source, s.ip);
+    for (const ns of (L.ns || [])) for (const ip of ns.ips) addRow('NS', ns.nameserver, ip);
+    for (const sub of (L.subdomains || [])) for (const ip of sub.ips) addRow('Subdomain', sub.subdomain, ip);
+    for (const sub of (L.ct?.resolved || [])) for (const ip of sub.ips) addRow('CT', sub.subdomain, ip);
+  }
+  downloadCSV(rows, 'ip-trace-deep-results.csv');
 }
 
 function exportFlagged() {
-  const flagged = allResults.filter(r => r.hasNL || r.hasEU);
-  const rows = [['#', 'URL', 'Domain', 'IPs', 'Countries', 'Region Flag', 'ISP/Org', 'City']];
-  for (const r of flagged) {
-    for (const { ip, geo } of r.ips) {
-      if (geo.countryCode === 'NL' || EU_COUNTRIES.has(geo.countryCode) || EEA_EXTRA.has(geo.countryCode)) {
+  const rows = [['#', 'URL', 'Domain', 'Layer', 'Detail', 'IP', 'Country', 'Region Flag', 'ISP/Org', 'Origin Mismatch']];
+  for (const d of allResults) {
+    if (!d.flags.isFlaggedDomain) continue;
+    const L = d.layers;
+    const addRow = (layer, detail, ip) => {
+      const g = geo(ip);
+      if (isFlagged(g.countryCode)) {
         rows.push([
-          r.index, r.url, r.domain, ip,
-          geo.country || '',
-          geo.countryCode === 'NL' ? 'NL' : 'EU',
-          geo.org || geo.isp || '',
-          geo.city || ''
+          d.index, d.url, d.domain, layer, detail, ip,
+          g.country || '',
+          g.countryCode || '',
+          g.org || g.isp || '',
+          d.flags.originMismatch ? 'YES' : ''
         ]);
       }
-    }
+    };
+    for (const ip of (L.cdn?.ips || [])) addRow('CDN', 'A/AAAA', ip);
+    for (const mx of (L.mx || [])) for (const ip of mx.ips) addRow('MX', mx.exchange, ip);
+    for (const s of (L.spf?.ips || [])) addRow('SPF', s.source, s.ip);
+    for (const ns of (L.ns || [])) for (const ip of ns.ips) addRow('NS', ns.nameserver, ip);
+    for (const sub of (L.subdomains || [])) for (const ip of sub.ips) addRow('Subdomain', sub.subdomain, ip);
+    for (const sub of (L.ct?.resolved || [])) for (const ip of sub.ips) addRow('CT', sub.subdomain, ip);
   }
   downloadCSV(rows, 'ip-trace-flagged-eu-nl.csv');
 }
@@ -670,41 +1129,32 @@ function downloadCSV(rows, filename) {
 }
 
 function exportJSON() {
-  const data = allResults.map(r => ({
-    url: r.url,
-    domain: r.domain,
-    flaggedNL: r.hasNL,
-    flaggedEU: r.hasEU,
-    ips: r.ips.map(({ ip, geo }) => ({
-      ip,
-      country: geo.country,
-      countryCode: geo.countryCode,
-      city: geo.city,
-      region: geo.regionName,
-      isp: geo.isp,
-      org: geo.org,
-      as: geo.as,
-      lat: geo.lat,
-      lon: geo.lon
-    }))
-  }));
+  const data = allResults.map(d => {
+    const L = d.layers;
+    const geoify = (ip) => {
+      const g = geo(ip);
+      return { ip, country: g.country, countryCode: g.countryCode, city: g.city, region: g.regionName, isp: g.isp, org: g.org, as: g.as, lat: g.lat, lon: g.lon };
+    };
+    return {
+      url: d.url,
+      domain: d.domain,
+      flags: d.flags,
+      layers: {
+        cdn: { ips: (L.cdn?.ips || []).map(geoify), cnames: L.cdn?.cnames || [] },
+        mx: (L.mx || []).map(mx => ({ ...mx, ips: mx.ips.map(geoify) })),
+        spf: { ips: (L.spf?.ips || []).map(s => ({ ...geoify(s.ip), source: s.source })), includes: L.spf?.includes || [] },
+        ns: (L.ns || []).map(ns => ({ ...ns, ips: ns.ips.map(geoify) })),
+        subdomains: (L.subdomains || []).map(s => ({ ...s, ips: s.ips.map(geoify) })),
+        ct: { discovered: L.ct?.discovered || 0, resolved: (L.ct?.resolved || []).map(s => ({ ...s, ips: s.ips.map(geoify) })) },
+        headers: L.headers || null
+      }
+    };
+  });
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'ip-trace-results.json';
+  a.download = 'ip-trace-deep-results.json';
   a.click();
-}
-
-function clearAll() {
-  document.getElementById('urlInput').value = '';
-  document.getElementById('resultsBody').innerHTML = '';
-  document.getElementById('stats').style.display = 'none';
-  document.getElementById('tableWrapper').style.display = 'none';
-  document.getElementById('exportSection').style.display = 'none';
-  document.getElementById('log').style.display = 'none';
-  document.getElementById('log').innerHTML = '';
-  document.getElementById('csvFile').value = '';
-  allResults = [];
 }
 </script>
 </body>
