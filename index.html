@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IP Tracer - EU/NL Infrastructure Detector</title>
+<style>
+  :root {
+    --bg: #0a0e17;
+    --surface: #111827;
+    --border: #1e293b;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --accent: #3b82f6;
+    --eu: #f59e0b;
+    --nl: #ef4444;
+    --safe: #10b981;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+    color: var(--accent);
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .input-section {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  textarea {
+    flex: 1;
+    min-width: 300px;
+    height: 120px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 0.75rem;
+    font-family: inherit;
+    font-size: 0.85rem;
+    resize: vertical;
+  }
+
+  textarea::placeholder { color: var(--muted); }
+  textarea:focus { outline: none; border-color: var(--accent); }
+
+  .controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 180px;
+  }
+
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  button:hover { opacity: 0.85; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-secondary {
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+
+  .file-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: border-color 0.2s;
+  }
+
+  .file-label:hover { border-color: var(--accent); }
+  .file-label input { display: none; }
+
+  .stats {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem 1.25rem;
+    min-width: 140px;
+  }
+
+  .stat-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+  }
+
+  .stat-label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .stat-nl .stat-value { color: var(--nl); }
+  .stat-eu .stat-value { color: var(--eu); }
+  .stat-other .stat-value { color: var(--safe); }
+
+  .progress-bar {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+    display: none;
+  }
+
+  .progress-bar.active { display: block; }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.3s;
+    width: 0%;
+  }
+
+  .results-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+  }
+
+  .results-table th {
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 2px solid var(--border);
+    color: var(--muted);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+  }
+
+  .results-table td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  .results-table tr:hover td { background: var(--surface); }
+
+  .tag {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+
+  .tag-nl { background: rgba(239,68,68,0.15); color: var(--nl); }
+  .tag-eu { background: rgba(245,158,11,0.15); color: var(--eu); }
+  .tag-other { background: rgba(16,185,129,0.1); color: var(--safe); }
+  .tag-error { background: rgba(100,116,139,0.15); color: var(--muted); }
+
+  .ip-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .ip-entry {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .export-section {
+    margin-top: 1rem;
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  .log {
+    margin-top: 1rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--surface);
+    border-radius: 6px;
+    font-size: 0.75rem;
+    color: var(--muted);
+    max-height: 60px;
+    overflow-y: auto;
+  }
+
+  @media (max-width: 600px) {
+    body { padding: 1rem; }
+    .input-section { flex-direction: column; }
+    textarea { min-width: unset; }
+  }
+</style>
+</head>
+<body>
+
+<h1>IP Tracer</h1>
+<p class="subtitle">Resolve URLs to IPs, geolocate infrastructure, flag EU / Netherlands hosting</p>
+
+<div class="input-section">
+  <textarea id="urlInput" placeholder="Enter URLs, one per line:&#10;https://example.com&#10;https://another-site.nl&#10;cdn.provider.eu"></textarea>
+  <div class="controls">
+    <label class="file-label">
+      Upload CSV
+      <input type="file" id="csvFile" accept=".csv,.txt">
+    </label>
+    <button id="traceBtn" onclick="startTrace()">Trace All</button>
+    <button class="btn-secondary" onclick="clearAll()">Clear</button>
+  </div>
+</div>
+
+<div class="progress-bar" id="progressBar">
+  <div class="progress-fill" id="progressFill"></div>
+</div>
+
+<div class="stats" id="stats" style="display:none">
+  <div class="stat stat-nl">
+    <div class="stat-value" id="nlCount">0</div>
+    <div class="stat-label">Netherlands</div>
+  </div>
+  <div class="stat stat-eu">
+    <div class="stat-value" id="euCount">0</div>
+    <div class="stat-label">EU (other)</div>
+  </div>
+  <div class="stat stat-other">
+    <div class="stat-value" id="otherCount">0</div>
+    <div class="stat-label">Non-EU</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value" id="totalCount">0</div>
+    <div class="stat-label">Total</div>
+  </div>
+</div>
+
+<div class="table-wrapper" id="tableWrapper" style="display:none">
+  <table class="results-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>URL / Domain</th>
+        <th>IP Address(es)</th>
+        <th>Location</th>
+        <th>ISP / Org</th>
+        <th>Region</th>
+      </tr>
+    </thead>
+    <tbody id="resultsBody"></tbody>
+  </table>
+</div>
+
+<div class="export-section" id="exportSection" style="display:none">
+  <button class="btn-secondary" onclick="exportCSV()">Export CSV</button>
+  <button class="btn-secondary" onclick="exportJSON()">Export JSON</button>
+  <button class="btn-secondary" onclick="exportFlagged()">Export Flagged Only</button>
+</div>
+
+<div class="log" id="log" style="display:none"></div>
+
+<script>
+const EU_COUNTRIES = new Set([
+  'AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR',
+  'DE','GR','HU','IE','IT','LV','LT','LU','MT','NL',
+  'PL','PT','RO','SK','SI','ES','SE'
+]);
+
+// EEA extras (not EU but often grouped)
+const EEA_EXTRA = new Set(['NO','IS','LI']);
+
+let allResults = [];
+
+// --- CSV file handling ---
+document.getElementById('csvFile').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const text = ev.target.result;
+    const urls = parseCSVForURLs(text);
+    document.getElementById('urlInput').value = urls.join('\n');
+    log(`Loaded ${urls.length} URLs from ${file.name}`);
+  };
+  reader.readAsText(file);
+});
+
+function parseCSVForURLs(text) {
+  const urls = [];
+  const lines = text.split(/\r?\n/);
+  for (const line of lines) {
+    // Split by comma, semicolon, or tab
+    const cells = line.split(/[,;\t]/);
+    for (let cell of cells) {
+      cell = cell.trim().replace(/^["']|["']$/g, '');
+      if (looksLikeURL(cell)) urls.push(cell);
+    }
+  }
+  return [...new Set(urls)];
+}
+
+function looksLikeURL(s) {
+  if (!s || s.length < 4) return false;
+  // Has protocol or looks like a domain
+  return /^https?:\/\//i.test(s) || /^[a-z0-9]([a-z0-9-]*\.)+[a-z]{2,}/i.test(s);
+}
+
+function extractDomain(url) {
+  try {
+    url = url.trim();
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    return new URL(url).hostname;
+  } catch {
+    // Fallback: strip protocol-like prefixes and paths
+    return url.replace(/^[a-z]+:\/\//i, '').split('/')[0].split(':')[0];
+  }
+}
+
+// --- DNS resolution via public APIs ---
+async function resolveIPs(domain) {
+  const ips = new Set();
+
+  // Try Cloudflare DoH
+  try {
+    const resp = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=A`, {
+      headers: { 'Accept': 'application/dns-json' }
+    });
+    const data = await resp.json();
+    if (data.Answer) {
+      for (const ans of data.Answer) {
+        if (ans.type === 1) ips.add(ans.data); // A record
+      }
+    }
+  } catch {}
+
+  // Also try AAAA (IPv6)
+  try {
+    const resp = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=AAAA`, {
+      headers: { 'Accept': 'application/dns-json' }
+    });
+    const data = await resp.json();
+    if (data.Answer) {
+      for (const ans of data.Answer) {
+        if (ans.type === 28) ips.add(ans.data); // AAAA record
+      }
+    }
+  } catch {}
+
+  // Try CNAME to find CDN chains
+  try {
+    const resp = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=CNAME`, {
+      headers: { 'Accept': 'application/dns-json' }
+    });
+    const data = await resp.json();
+    if (data.Answer) {
+      for (const ans of data.Answer) {
+        if (ans.type === 5) {
+          // Resolve the CNAME target too
+          const cname = ans.data.replace(/\.$/, '');
+          try {
+            const r2 = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(cname)}&type=A`, {
+              headers: { 'Accept': 'application/dns-json' }
+            });
+            const d2 = await r2.json();
+            if (d2.Answer) {
+              for (const a2 of d2.Answer) {
+                if (a2.type === 1) ips.add(a2.data);
+              }
+            }
+          } catch {}
+        }
+      }
+    }
+  } catch {}
+
+  return [...ips];
+}
+
+// --- IP Geolocation via ip-api.com (batch supported) ---
+async function geolocateBatch(ips) {
+  // ip-api.com supports batch of up to 100
+  const results = new Map();
+  const chunks = [];
+  for (let i = 0; i < ips.length; i += 100) {
+    chunks.push(ips.slice(i, i + 100));
+  }
+
+  for (const chunk of chunks) {
+    try {
+      const resp = await fetch('http://ip-api.com/batch?fields=status,message,query,country,countryCode,regionName,city,isp,org,as,lat,lon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(chunk.map(ip => ({ query: ip })))
+      });
+      const data = await resp.json();
+      for (const entry of data) {
+        results.set(entry.query, entry);
+      }
+    } catch (err) {
+      // Fallback: query individually
+      for (const ip of chunk) {
+        try {
+          const resp = await fetch(`http://ip-api.com/json/${ip}?fields=status,message,query,country,countryCode,regionName,city,isp,org,as,lat,lon`);
+          const data = await resp.json();
+          results.set(ip, data);
+        } catch {
+          results.set(ip, { status: 'fail', query: ip, message: 'Request failed' });
+        }
+        // Rate limit: 45 req/min for free tier
+        await sleep(1400);
+      }
+    }
+    if (chunks.length > 1) await sleep(1500);
+  }
+
+  return results;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function regionTag(countryCode) {
+  if (countryCode === 'NL') return { label: 'Netherlands', cls: 'tag-nl' };
+  if (EU_COUNTRIES.has(countryCode)) return { label: 'EU', cls: 'tag-eu' };
+  if (EEA_EXTRA.has(countryCode)) return { label: 'EEA', cls: 'tag-eu' };
+  return { label: 'Non-EU', cls: 'tag-other' };
+}
+
+// --- Main trace ---
+async function startTrace() {
+  const input = document.getElementById('urlInput').value.trim();
+  if (!input) return;
+
+  const rawUrls = input.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  const urls = [...new Set(rawUrls)];
+
+  const btn = document.getElementById('traceBtn');
+  btn.disabled = true;
+  btn.textContent = 'Tracing...';
+
+  const progressBar = document.getElementById('progressBar');
+  const progressFill = document.getElementById('progressFill');
+  progressBar.classList.add('active');
+  progressFill.style.width = '0%';
+
+  document.getElementById('stats').style.display = 'flex';
+  document.getElementById('tableWrapper').style.display = 'block';
+  document.getElementById('exportSection').style.display = 'flex';
+  document.getElementById('log').style.display = 'block';
+  document.getElementById('resultsBody').innerHTML = '';
+
+  allResults = [];
+  let nlCount = 0, euCount = 0, otherCount = 0;
+
+  log(`Starting trace for ${urls.length} URLs...`);
+
+  // Step 1: Resolve all domains to IPs
+  const domainIPs = [];
+  for (let i = 0; i < urls.length; i++) {
+    const domain = extractDomain(urls[i]);
+    log(`Resolving ${domain}...`);
+    const ips = await resolveIPs(domain);
+    domainIPs.push({ url: urls[i], domain, ips });
+    progressFill.style.width = `${((i + 1) / urls.length * 50)}%`;
+    // Small delay to avoid hammering DNS
+    if (i > 0 && i % 10 === 0) await sleep(200);
+  }
+
+  // Step 2: Collect all unique IPs
+  const allIPs = new Set();
+  for (const d of domainIPs) {
+    for (const ip of d.ips) allIPs.add(ip);
+  }
+
+  log(`Resolved ${allIPs.size} unique IPs. Geolocating...`);
+
+  // Step 3: Batch geolocate
+  const geoData = await geolocateBatch([...allIPs]);
+
+  progressFill.style.width = '90%';
+
+  // Step 4: Build results
+  for (let i = 0; i < domainIPs.length; i++) {
+    const { url, domain, ips } = domainIPs[i];
+    const ipResults = ips.map(ip => {
+      const geo = geoData.get(ip) || { status: 'fail' };
+      return { ip, geo };
+    });
+
+    // Determine worst-case region flag
+    let hasNL = false, hasEU = false;
+    for (const { geo } of ipResults) {
+      if (geo.countryCode === 'NL') hasNL = true;
+      else if (EU_COUNTRIES.has(geo.countryCode) || EEA_EXTRA.has(geo.countryCode)) hasEU = true;
+    }
+
+    if (hasNL) nlCount++;
+    else if (hasEU) euCount++;
+    else otherCount++;
+
+    const result = { index: i + 1, url, domain, ips: ipResults, hasNL, hasEU };
+    allResults.push(result);
+    renderRow(result);
+
+    document.getElementById('nlCount').textContent = nlCount;
+    document.getElementById('euCount').textContent = euCount;
+    document.getElementById('otherCount').textContent = otherCount;
+    document.getElementById('totalCount').textContent = i + 1;
+  }
+
+  progressFill.style.width = '100%';
+  setTimeout(() => progressBar.classList.remove('active'), 1000);
+
+  log(`Done. ${nlCount} NL, ${euCount} EU, ${otherCount} non-EU out of ${urls.length} URLs.`);
+  btn.disabled = false;
+  btn.textContent = 'Trace All';
+}
+
+function renderRow(result) {
+  const tbody = document.getElementById('resultsBody');
+  const tr = document.createElement('tr');
+
+  const regionInfo = result.hasNL
+    ? regionTag('NL')
+    : result.hasEU
+      ? regionTag('EU_OTHER')
+      : regionTag('XX');
+
+  // Determine tag from IPs
+  let overallTag;
+  if (result.hasNL) overallTag = '<span class="tag tag-nl">NL</span>';
+  else if (result.hasEU) overallTag = '<span class="tag tag-eu">EU</span>';
+  else if (result.ips.length === 0) overallTag = '<span class="tag tag-error">No IPs</span>';
+  else overallTag = '<span class="tag tag-other">Non-EU</span>';
+
+  const ipCells = result.ips.map(({ ip, geo }) => {
+    const tag = geo.status === 'success' ? regionTag(geo.countryCode) : { label: 'Error', cls: 'tag-error' };
+    const loc = geo.status === 'success' ? `${geo.city || '?'}, ${geo.country || '?'}` : 'Unknown';
+    return `<div class="ip-entry">
+      <code>${ip}</code>
+      <span class="tag ${tag.cls}">${tag.label}</span>
+      <span style="color:var(--muted)">${loc}</span>
+    </div>`;
+  }).join('');
+
+  const ispOrg = result.ips.map(({ geo }) =>
+    geo.status === 'success' ? (geo.org || geo.isp || geo.as || '-') : '-'
+  ).filter((v, i, a) => a.indexOf(v) === i).join(', ');
+
+  const regions = result.ips.map(({ geo }) =>
+    geo.status === 'success' ? `${geo.regionName || ''}, ${geo.country || ''}` : '-'
+  ).filter((v, i, a) => a.indexOf(v) === i).join('; ');
+
+  tr.innerHTML = `
+    <td>${result.index}</td>
+    <td><strong>${escapeHtml(result.domain)}</strong><br><span style="color:var(--muted);font-size:0.7rem">${escapeHtml(result.url)}</span></td>
+    <td><div class="ip-list">${ipCells || '<span style="color:var(--muted)">No records</span>'}</div></td>
+    <td>${overallTag}</td>
+    <td style="color:var(--muted)">${escapeHtml(ispOrg)}</td>
+    <td style="color:var(--muted)">${escapeHtml(regions)}</td>
+  `;
+
+  tbody.appendChild(tr);
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+
+function log(msg) {
+  const el = document.getElementById('log');
+  el.style.display = 'block';
+  const time = new Date().toLocaleTimeString();
+  el.innerHTML += `<div>[${time}] ${escapeHtml(msg)}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+// --- Export functions ---
+function exportCSV() {
+  const rows = [['#', 'URL', 'Domain', 'IPs', 'Countries', 'Region Flag', 'ISP/Org', 'City', 'Lat', 'Lon']];
+  for (const r of allResults) {
+    for (const { ip, geo } of r.ips) {
+      rows.push([
+        r.index,
+        r.url,
+        r.domain,
+        ip,
+        geo.country || '',
+        geo.countryCode === 'NL' ? 'NL' : EU_COUNTRIES.has(geo.countryCode) ? 'EU' : 'Non-EU',
+        geo.org || geo.isp || '',
+        geo.city || '',
+        geo.lat || '',
+        geo.lon || ''
+      ]);
+    }
+  }
+  downloadCSV(rows, 'ip-trace-results.csv');
+}
+
+function exportFlagged() {
+  const flagged = allResults.filter(r => r.hasNL || r.hasEU);
+  const rows = [['#', 'URL', 'Domain', 'IPs', 'Countries', 'Region Flag', 'ISP/Org', 'City']];
+  for (const r of flagged) {
+    for (const { ip, geo } of r.ips) {
+      if (geo.countryCode === 'NL' || EU_COUNTRIES.has(geo.countryCode) || EEA_EXTRA.has(geo.countryCode)) {
+        rows.push([
+          r.index, r.url, r.domain, ip,
+          geo.country || '',
+          geo.countryCode === 'NL' ? 'NL' : 'EU',
+          geo.org || geo.isp || '',
+          geo.city || ''
+        ]);
+      }
+    }
+  }
+  downloadCSV(rows, 'ip-trace-flagged-eu-nl.csv');
+}
+
+function downloadCSV(rows, filename) {
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
+function exportJSON() {
+  const data = allResults.map(r => ({
+    url: r.url,
+    domain: r.domain,
+    flaggedNL: r.hasNL,
+    flaggedEU: r.hasEU,
+    ips: r.ips.map(({ ip, geo }) => ({
+      ip,
+      country: geo.country,
+      countryCode: geo.countryCode,
+      city: geo.city,
+      region: geo.regionName,
+      isp: geo.isp,
+      org: geo.org,
+      as: geo.as,
+      lat: geo.lat,
+      lon: geo.lon
+    }))
+  }));
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ip-trace-results.json';
+  a.click();
+}
+
+function clearAll() {
+  document.getElementById('urlInput').value = '';
+  document.getElementById('resultsBody').innerHTML = '';
+  document.getElementById('stats').style.display = 'none';
+  document.getElementById('tableWrapper').style.display = 'none';
+  document.getElementById('exportSection').style.display = 'none';
+  document.getElementById('log').style.display = 'none';
+  document.getElementById('log').innerHTML = '';
+  document.getElementById('csvFile').value = '';
+  allResults = [];
+}
+</script>
+</body>
+</html>
