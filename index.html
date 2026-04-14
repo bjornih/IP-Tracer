@@ -669,27 +669,29 @@ async function probeHeaders(url) {
 }
 
 // ============================================================
-// Geolocation (ipwho.is — free, HTTPS, no API key)
+// Geolocation (ipinfo.io — free HTTPS + CORS, 50k/month)
 // ============================================================
 async function geolocateBatch(ips) {
   const needed = ips.filter(ip => !geoCache.has(ip));
 
-  // ipwho.is has no batch endpoint, so we parallelize with concurrency limit
+  // Parallelize with concurrency limit
   const CONCURRENCY = 5;
   for (let i = 0; i < needed.length; i += CONCURRENCY) {
     const batch = needed.slice(i, i + CONCURRENCY);
-    const results = await Promise.allSettled(batch.map(async (ip) => {
+    await Promise.allSettled(batch.map(async (ip) => {
       try {
-        const resp = await fetch(`https://ipwho.is/${ip}`);
+        const resp = await fetch(`https://ipinfo.io/${ip}/json`);
         const data = await resp.json();
-        if (data.success !== false) {
+        if (data.ip && data.country) {
+          const [lat, lon] = (data.loc || '0,0').split(',').map(Number);
           geoCache.set(ip, {
             status: 'success', query: ip,
-            country: data.country, countryCode: data.country_code,
-            regionName: data.region, city: data.city,
-            isp: data.connection?.isp || '', org: data.connection?.org || '',
-            as: data.connection?.asn ? `AS${data.connection.asn}` : '',
-            lat: data.latitude, lon: data.longitude
+            country: ALL_COUNTRIES[data.country] || data.country,
+            countryCode: data.country,
+            regionName: data.region || '', city: data.city || '',
+            isp: '', org: data.org || '',
+            as: data.org || '',
+            lat, lon
           });
         } else {
           geoCache.set(ip, { status: 'fail', query: ip });
@@ -698,8 +700,7 @@ async function geolocateBatch(ips) {
         geoCache.set(ip, { status: 'fail', query: ip });
       }
     }));
-    // Small delay between batches to be respectful
-    if (i + CONCURRENCY < needed.length) await sleep(300);
+    if (i + CONCURRENCY < needed.length) await sleep(200);
   }
 }
 
