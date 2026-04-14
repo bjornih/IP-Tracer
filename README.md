@@ -13,7 +13,7 @@ A browser-based tool that resolves URLs to IP addresses and detects if any assoc
 
 ## Usage
 
-1. Open `index.html` in a browser (or visit the [GitHub Pages site]([https://github.com](https://bjornih.github.io/IP-Tracer/)))
+1. Open `index.html` in a browser (or visit the [GitHub Pages site](https://bjornih.github.io/IP-Tracer/)))
 2. Paste URLs (one per line) or upload a `.csv` file
 3. Click **Trace All**
 4. Review results — Netherlands and EU infrastructure is highlighted
