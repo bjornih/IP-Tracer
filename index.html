@@ -669,38 +669,73 @@ async function probeHeaders(url) {
 }
 
 // ============================================================
-// Geolocation (ipinfo.io — free HTTPS + CORS, 50k/month)
+// Geolocation (ipapi.is — free HTTPS + CORS, batch, no signup)
 // ============================================================
 async function geolocateBatch(ips) {
   const needed = ips.filter(ip => !geoCache.has(ip));
 
-  // Parallelize with concurrency limit
-  const CONCURRENCY = 5;
-  for (let i = 0; i < needed.length; i += CONCURRENCY) {
-    const batch = needed.slice(i, i + CONCURRENCY);
-    await Promise.allSettled(batch.map(async (ip) => {
-      try {
-        const resp = await fetch(`https://ipinfo.io/${ip}/json`);
-        const data = await resp.json();
-        if (data.ip && data.country) {
-          const [lat, lon] = (data.loc || '0,0').split(',').map(Number);
+  // ipapi.is supports POST batch up to 100 IPs
+  for (let i = 0; i < needed.length; i += 100) {
+    const chunk = needed.slice(i, i + 100);
+    try {
+      const resp = await fetch('https://api.ipapi.is/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ips: chunk })
+      });
+      const data = await resp.json();
+      for (const ip of chunk) {
+        const entry = data[ip];
+        if (entry && entry.location) {
           geoCache.set(ip, {
             status: 'success', query: ip,
-            country: ALL_COUNTRIES[data.country] || data.country,
-            countryCode: data.country,
-            regionName: data.region || '', city: data.city || '',
-            isp: '', org: data.org || '',
-            as: data.org || '',
-            lat, lon
+            country: entry.location.country || '',
+            countryCode: (entry.location.country_code || '').toUpperCase(),
+            regionName: entry.location.state || '',
+            city: entry.location.city || '',
+            isp: entry.company?.name || '',
+            org: entry.asn?.org || entry.company?.name || '',
+            as: entry.asn?.asn ? `AS${entry.asn.asn}` : '',
+            lat: entry.location.latitude,
+            lon: entry.location.longitude,
+            isDatacenter: !!entry.is_datacenter,
+            datacenterName: entry.datacenter?.datacenter || ''
           });
         } else {
           geoCache.set(ip, { status: 'fail', query: ip });
         }
-      } catch {
-        geoCache.set(ip, { status: 'fail', query: ip });
       }
-    }));
-    if (i + CONCURRENCY < needed.length) await sleep(200);
+    } catch {
+      // Fallback: individual requests
+      for (const ip of chunk) {
+        try {
+          const resp = await fetch(`https://api.ipapi.is/?q=${ip}`);
+          const entry = await resp.json();
+          if (entry.location) {
+            geoCache.set(ip, {
+              status: 'success', query: ip,
+              country: entry.location.country || '',
+              countryCode: (entry.location.country_code || '').toUpperCase(),
+              regionName: entry.location.state || '',
+              city: entry.location.city || '',
+              isp: entry.company?.name || '',
+              org: entry.asn?.org || entry.company?.name || '',
+              as: entry.asn?.asn ? `AS${entry.asn.asn}` : '',
+              lat: entry.location.latitude,
+              lon: entry.location.longitude,
+              isDatacenter: !!entry.is_datacenter,
+              datacenterName: entry.datacenter?.datacenter || ''
+            });
+          } else {
+            geoCache.set(ip, { status: 'fail', query: ip });
+          }
+        } catch {
+          geoCache.set(ip, { status: 'fail', query: ip });
+        }
+        await sleep(200);
+      }
+    }
+    if (i + 100 < needed.length) await sleep(500);
   }
 }
 

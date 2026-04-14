@@ -47,7 +47,7 @@ Most websites use CDNs like Cloudflare, which mask the origin server's location.
 - CDN edge nodes resolve based on the **user's location**, not the origin
 - HTTP header probing works only for CORS-enabled sites (most will block it)
 - crt.sh can be slow or timeout — results are best-effort
-- Geolocation accuracy depends on IP registry data (ipinfo.io)
+- Geolocation accuracy depends on IP registry data (ipapi.is)
 - SPF recursion capped at depth 3 and 50 IPs to avoid excessive lookups
 
 ## Tech
@@ -55,7 +55,7 @@ Most websites use CDNs like Cloudflare, which mask the origin server's location.
 Zero dependencies. Single HTML file. Runs entirely in the browser.
 
 - DNS: [Cloudflare DoH](https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/)
-- Geolocation: [ipinfo.io](https://ipinfo.io/) (free, HTTPS, 50k/month)
+- Geolocation: [ipapi.is](https://ipapi.is/) (free, HTTPS, batch, no signup)
 - Certificate Transparency: [crt.sh](https://crt.sh/)
 
 ## License
