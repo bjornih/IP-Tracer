@@ -13,7 +13,7 @@ A browser-based tool that resolves URLs to IP addresses and detects if any assoc
 
 ## Usage
 
-1. Open `index.html` in a browser (or visit the [GitHub Pages site](https://github.com))
+1. Open `index.html` in a browser (or visit the [GitHub Pages site]([https://github.com](https://bjornih.github.io/IP-Tracer/)))
 2. Paste URLs (one per line) or upload a `.csv` file
 3. Click **Trace All**
 4. Review results — Netherlands and EU infrastructure is highlighted
@@ -33,6 +33,3 @@ Zero dependencies. Single HTML file. Runs entirely in the browser.
 - DNS: [Cloudflare DoH](https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/)
 - Geolocation: [ip-api.com](http://ip-api.com/) batch API
 
-## License
-
-MIT
